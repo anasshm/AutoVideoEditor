@@ -1,0 +1,59 @@
+# Video processing output directories
+video_processing_*/
+
+# Temporary files
+*.tmp
+*.temp
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Video files (examples only, not user content)
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.m4v
+*.flv
+*.wmv
+
+# Audio files
+*.mp3
+*.wav
+*.aac
+*.m4a
+
+# Log files
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
