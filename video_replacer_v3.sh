@@ -17,10 +17,30 @@ print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Check ffmpeg
+# Check ffmpeg and hardware acceleration
 if ! command -v ffmpeg &> /dev/null; then
     print_error "ffmpeg not found. Install with: brew install ffmpeg"
     exit 1
+fi
+
+# Detect hardware acceleration support
+detect_hardware_acceleration() {
+    if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "h264_videotoolbox"; then
+        echo "h264_videotoolbox"
+    else
+        echo "libx264"
+    fi
+}
+
+ENCODER=$(detect_hardware_acceleration)
+if [[ "$ENCODER" == "h264_videotoolbox" ]]; then
+    # Better quality settings for VideoToolbox (lower number = higher quality)
+    # 70-80 = high quality, 60-70 = very high quality, 50-60 = excellent quality
+    QUALITY_PARAM="-q:v 65 -b:v 8M"  # High quality with bitrate limit
+    print_success "Apple Silicon hardware acceleration detected (optimized quality)"
+else
+    QUALITY_PARAM="-crf 20"  # Higher quality for software encoding
+    print_info "Using software encoding (libx264)"
 fi
 
 print_info "=== Video Replacer Script v3 ==="
@@ -68,6 +88,34 @@ fi
 print_success "Target length: ${TARGET_LENGTH} seconds"
 echo ""
 
+# Quality preference (only for VideoToolbox)
+if [[ "$ENCODER" == "h264_videotoolbox" ]]; then
+    echo "Step 4: Quality vs Speed Balance"
+    echo "Choose your preference:"
+    echo "1) Maximum Quality (slower, larger files) - q:v 60"
+    echo "2) Balanced (recommended) - q:v 65" 
+    echo "3) Fast Processing (faster, smaller files) - q:v 70"
+    echo ""
+    echo -n "Enter choice (1-3, default: 2): "
+    read QUALITY_CHOICE
+    
+    case "$QUALITY_CHOICE" in
+        1)
+            QUALITY_PARAM="-q:v 60 -b:v 12M"
+            print_success "Maximum quality selected"
+            ;;
+        3)
+            QUALITY_PARAM="-q:v 70 -b:v 6M"
+            print_success "Fast processing selected"
+            ;;
+        *)
+            QUALITY_PARAM="-q:v 65 -b:v 8M"
+            print_success "Balanced quality selected (default)"
+            ;;
+    esac
+    echo ""
+fi
+
 # Create working directory
 WORK_DIR="$(dirname "$MAIN_VIDEO")/video_processing_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$WORK_DIR"
@@ -110,17 +158,17 @@ for i in "${!VIDEO_FILES[@]}"; do
     DURATION=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VIDEO_FILE" 2>/dev/null | cut -d. -f1)
     
     if [[ -n "$DURATION" ]] && (( DURATION > TARGET_LENGTH )); then
-        print_info "  → Muting and cutting replacement video to ${TARGET_LENGTH}s..."
-        ffmpeg -i "$VIDEO_FILE" -t "$TARGET_LENGTH" -an -c:v libx264 "$PROCESSED_FILE" -y -loglevel error
+        print_info "  → Muting and cutting replacement video to ${TARGET_LENGTH}s (${ENCODER})..."
+        ffmpeg -i "$VIDEO_FILE" -t "$TARGET_LENGTH" -an -c:v "$ENCODER" $QUALITY_PARAM "$PROCESSED_FILE" -y -loglevel error
     else
-        print_info "  → Muting replacement video (keeping ${DURATION}s duration)..."
-        ffmpeg -i "$VIDEO_FILE" -an -c:v libx264 "$PROCESSED_FILE" -y -loglevel error
+        print_info "  → Muting replacement video (keeping ${DURATION}s duration, ${ENCODER})..."
+        ffmpeg -i "$VIDEO_FILE" -an -c:v "$ENCODER" $QUALITY_PARAM "$PROCESSED_FILE" -y -loglevel error
     fi
     
     # Step 3: Cut main video from TARGET_LENGTH to end (video only, no audio)
     MAIN_SEGMENT="$WORK_DIR/main_segment_${i}.mp4"
-    print_info "  → Extracting main video segment (${TARGET_LENGTH}s to end)..."
-    ffmpeg -i "$MAIN_VIDEO" -ss "$TARGET_LENGTH" -an -c:v libx264 "$MAIN_SEGMENT" -y -loglevel error
+    print_info "  → Extracting main video segment (${TARGET_LENGTH}s to end, ${ENCODER})..."
+    ffmpeg -i "$MAIN_VIDEO" -ss "$TARGET_LENGTH" -an -c:v "$ENCODER" $QUALITY_PARAM "$MAIN_SEGMENT" -y -loglevel error
     
     # Step 4: Combine videos (replacement + main segment) and add original audio
     OUTPUT_FILE="$WORK_DIR/output_${BASENAME}.mp4"
@@ -131,9 +179,9 @@ for i in "${!VIDEO_FILES[@]}"; do
     echo "file '$PROCESSED_FILE'" > "$LIST_FILE"
     echo "file '$MAIN_SEGMENT'" >> "$LIST_FILE"
     
-    # First, concatenate the video parts (no audio)
+    # First, concatenate the video parts (no audio) - Hardware optimized
     COMBINED_VIDEO="$WORK_DIR/combined_video_${i}.mp4"
-    ffmpeg -f concat -safe 0 -i "$LIST_FILE" -c:v libx264 "$COMBINED_VIDEO" -y -loglevel error
+    ffmpeg -f concat -safe 0 -i "$LIST_FILE" -c:v "$ENCODER" $QUALITY_PARAM "$COMBINED_VIDEO" -y -loglevel error
     
     # Then, add the original audio to the combined video
     ffmpeg -i "$COMBINED_VIDEO" -i "$MAIN_AUDIO" -c:v copy -c:a aac -shortest "$OUTPUT_FILE" -y -loglevel error
