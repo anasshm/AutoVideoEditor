@@ -89,10 +89,12 @@ echo ""
 
 # Quality is now set to maximum by default - no user interaction needed
 
-# Create working directory
-WORK_DIR="$(dirname "$MAIN_VIDEO")/video_processing_$(date +%Y%m%d_%H%M%S)"
+# Create working directory using the folder name of the main video
+MAIN_VIDEO_DIR=$(dirname "$MAIN_VIDEO")
+FOLDER_NAME=$(basename "$MAIN_VIDEO_DIR")
+WORK_DIR="${MAIN_VIDEO_DIR}/${FOLDER_NAME}"
 mkdir -p "$WORK_DIR"
-print_info "Working directory: $WORK_DIR"
+print_info "Output folder: $WORK_DIR"
 echo ""
 
 # Find video files
@@ -117,9 +119,10 @@ echo ""
 # Process each video
 for i in "${!VIDEO_FILES[@]}"; do
     VIDEO_FILE="${VIDEO_FILES[$i]}"
-    BASENAME=$(basename "$VIDEO_FILE" | sed 's/\.[^.]*$//')
+    # Create numbered output filename using folder name
+    OUTPUT_NUMBER=$((i + 1))
     
-    print_info "Processing $(($i + 1))/${#VIDEO_FILES[@]}: $(basename "$VIDEO_FILE")"
+    print_info "Processing $OUTPUT_NUMBER/${#VIDEO_FILES[@]}: $(basename "$VIDEO_FILE")"
     
     # Step 1: Extract audio from main video (this will be used throughout)
     MAIN_AUDIO="$WORK_DIR/main_audio_${i}.aac"
@@ -127,7 +130,7 @@ for i in "${!VIDEO_FILES[@]}"; do
     ffmpeg -i "$MAIN_VIDEO" -vn -c:a aac "$MAIN_AUDIO" -y -loglevel error
     
     # Step 2: Mute and cut the replacement video (0 to TARGET_LENGTH)
-    PROCESSED_FILE="$WORK_DIR/${BASENAME}_processed.mp4"
+    PROCESSED_FILE="$WORK_DIR/temp_processed_${OUTPUT_NUMBER}.mp4"
     DURATION=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VIDEO_FILE" 2>/dev/null | cut -d. -f1)
     
     if [[ -n "$DURATION" ]] && (( DURATION > TARGET_LENGTH )); then
@@ -139,21 +142,21 @@ for i in "${!VIDEO_FILES[@]}"; do
     fi
     
     # Step 3: Cut main video from TARGET_LENGTH to end (video only, no audio)
-    MAIN_SEGMENT="$WORK_DIR/main_segment_${i}.mp4"
+    MAIN_SEGMENT="$WORK_DIR/temp_main_segment_${OUTPUT_NUMBER}.mp4"
     print_info "  → Extracting main video segment (${TARGET_LENGTH}s to end, ${ENCODER})..."
     ffmpeg -i "$MAIN_VIDEO" -ss "$TARGET_LENGTH" -an -c:v "$ENCODER" $QUALITY_PARAM "$MAIN_SEGMENT" -y -loglevel error
     
     # Step 4: Combine videos (replacement + main segment) and add original audio
-    OUTPUT_FILE="$WORK_DIR/output_${BASENAME}.mp4"
+    OUTPUT_FILE="$WORK_DIR/${FOLDER_NAME}_${OUTPUT_NUMBER}.mp4"
     print_info "  → Combining videos and adding original audio..."
     
     # Create video list for concatenation
-    LIST_FILE="$WORK_DIR/list_${i}.txt"
+    LIST_FILE="$WORK_DIR/temp_list_${OUTPUT_NUMBER}.txt"
     echo "file '$PROCESSED_FILE'" > "$LIST_FILE"
     echo "file '$MAIN_SEGMENT'" >> "$LIST_FILE"
     
     # First, concatenate the video parts (no audio) - Hardware optimized
-    COMBINED_VIDEO="$WORK_DIR/combined_video_${i}.mp4"
+    COMBINED_VIDEO="$WORK_DIR/temp_combined_${OUTPUT_NUMBER}.mp4"
     ffmpeg -f concat -safe 0 -i "$LIST_FILE" -c:v "$ENCODER" $QUALITY_PARAM "$COMBINED_VIDEO" -y -loglevel error
     
     # Then, add the original audio to the combined video
@@ -164,12 +167,12 @@ for i in "${!VIDEO_FILES[@]}"; do
     MAIN_DURATION=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$MAIN_VIDEO" 2>/dev/null | cut -d. -f1)
     
     if [[ -f "$OUTPUT_FILE" ]] && [[ "$OUTPUT_DURATION" -gt 5 ]]; then
-        print_success "  → Created: output_${BASENAME}.mp4 (${OUTPUT_DURATION}s)"
+        print_success "  → Created: ${FOLDER_NAME}_${OUTPUT_NUMBER}.mp4 (${OUTPUT_DURATION}s)"
     else
         print_error "  → Failed to create proper output"
     fi
     
-    # Clean up intermediate files
+    # Clean up intermediate files (keep only the final numbered output)
     rm -f "$PROCESSED_FILE" "$MAIN_SEGMENT" "$LIST_FILE" "$MAIN_AUDIO" "$COMBINED_VIDEO"
     echo ""
 done
@@ -181,11 +184,12 @@ echo ""
 
 # Show a sample of what was created
 print_info "Sample output file info:"
-SAMPLE_OUTPUT=$(find "$WORK_DIR" -name "output_*.mp4" | head -1)
+SAMPLE_OUTPUT=$(find "$WORK_DIR" -name "${FOLDER_NAME}_*.mp4" | head -1)
 if [[ -f "$SAMPLE_OUTPUT" ]]; then
     SAMPLE_DURATION=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$SAMPLE_OUTPUT" 2>/dev/null)
     print_info "  File: $(basename "$SAMPLE_OUTPUT")"
     print_info "  Duration: ${SAMPLE_DURATION}s"
+    print_info "  Naming pattern: ${FOLDER_NAME}_1.mp4, ${FOLDER_NAME}_2.mp4, etc."
 fi
 
 print_success "Done! Check your output folder for the results."
