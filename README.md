@@ -2,6 +2,26 @@
 
 A powerful FFmpeg-based video processing tool for batch video editing operations. This tool allows you to replace segments of a main video with multiple other videos while preserving the original audio track.
 
+## 🚀 Quick Start (Fresh Mac Users)
+
+**👉 [See QUICK_START.md for complete beginner guide](QUICK_START.md)**
+
+### Super Quick Setup:
+```bash
+# 1. Install FFmpeg
+brew install ffmpeg
+
+# 2. Download and run
+git clone https://github.com/anasshm/AutoVideoEditor.git
+cd AutoVideoEditor
+chmod +x video_replacer_v3.sh
+./video_replacer_v3.sh
+```
+
+### What it does:
+- **Input**: 1 main video + folder of replacement videos + target length (e.g., 3 seconds)
+- **Output**: Multiple videos where first 3 seconds = replacement video, rest = original video with original audio
+
 ## Features
 
 - **Batch Video Processing**: Process multiple videos from a folder automatically

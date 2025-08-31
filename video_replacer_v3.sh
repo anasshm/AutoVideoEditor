@@ -34,13 +34,12 @@ detect_hardware_acceleration() {
 
 ENCODER=$(detect_hardware_acceleration)
 if [[ "$ENCODER" == "h264_videotoolbox" ]]; then
-    # Better quality settings for VideoToolbox (lower number = higher quality)
-    # 70-80 = high quality, 60-70 = very high quality, 50-60 = excellent quality
-    QUALITY_PARAM="-q:v 65 -b:v 8M"  # High quality with bitrate limit
-    print_success "Apple Silicon hardware acceleration detected (optimized quality)"
+    # Maximum quality settings for VideoToolbox (lower number = higher quality)
+    QUALITY_PARAM="-q:v 60 -b:v 12M"  # Maximum quality with high bitrate
+    print_success "Apple Silicon hardware acceleration detected (maximum quality)"
 else
-    QUALITY_PARAM="-crf 20"  # Higher quality for software encoding
-    print_info "Using software encoding (libx264)"
+    QUALITY_PARAM="-crf 18"  # Maximum quality for software encoding
+    print_info "Using software encoding (libx264, maximum quality)"
 fi
 
 print_info "=== Video Replacer Script v3 ==="
@@ -88,33 +87,7 @@ fi
 print_success "Target length: ${TARGET_LENGTH} seconds"
 echo ""
 
-# Quality preference (only for VideoToolbox)
-if [[ "$ENCODER" == "h264_videotoolbox" ]]; then
-    echo "Step 4: Quality vs Speed Balance"
-    echo "Choose your preference:"
-    echo "1) Maximum Quality (slower, larger files) - q:v 60"
-    echo "2) Balanced (recommended) - q:v 65" 
-    echo "3) Fast Processing (faster, smaller files) - q:v 70"
-    echo ""
-    echo -n "Enter choice (1-3, default: 2): "
-    read QUALITY_CHOICE
-    
-    case "$QUALITY_CHOICE" in
-        1)
-            QUALITY_PARAM="-q:v 60 -b:v 12M"
-            print_success "Maximum quality selected"
-            ;;
-        3)
-            QUALITY_PARAM="-q:v 70 -b:v 6M"
-            print_success "Fast processing selected"
-            ;;
-        *)
-            QUALITY_PARAM="-q:v 65 -b:v 8M"
-            print_success "Balanced quality selected (default)"
-            ;;
-    esac
-    echo ""
-fi
+# Quality is now set to maximum by default - no user interaction needed
 
 # Create working directory
 WORK_DIR="$(dirname "$MAIN_VIDEO")/video_processing_$(date +%Y%m%d_%H%M%S)"
