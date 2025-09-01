@@ -133,12 +133,83 @@ for i in "${!VIDEO_FILES[@]}"; do
     PROCESSED_FILE="$WORK_DIR/temp_processed_${OUTPUT_NUMBER}.mp4"
     DURATION=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VIDEO_FILE" 2>/dev/null | cut -d. -f1)
     
-    if [[ -n "$DURATION" ]] && (( DURATION > TARGET_LENGTH )); then
+    if [[ -n "$DURATION" ]] && (( DURATION >= TARGET_LENGTH )); then
         print_info "  → Muting and cutting replacement video to ${TARGET_LENGTH}s (${ENCODER})..."
         ffmpeg -i "$VIDEO_FILE" -t "$TARGET_LENGTH" -an -c:v "$ENCODER" $QUALITY_PARAM "$PROCESSED_FILE" -y -loglevel error
     else
-        print_info "  → Muting replacement video (keeping ${DURATION}s duration, ${ENCODER})..."
-        ffmpeg -i "$VIDEO_FILE" -an -c:v "$ENCODER" $QUALITY_PARAM "$PROCESSED_FILE" -y -loglevel error
+        print_info "  → Video is ${DURATION}s, need ${TARGET_LENGTH}s. Building composite video with fillers..."
+        
+        # Create list of video segments needed to reach target duration
+        SEGMENT_LIST="$WORK_DIR/temp_segments_${OUTPUT_NUMBER}.txt"
+        rm -f "$SEGMENT_LIST"
+        
+        CURRENT_DURATION=0
+        REMAINING_NEEDED=$TARGET_LENGTH
+        FILLER_INDEX=0
+        
+        # First, add the original video (full duration)
+        ORIGINAL_SEGMENT="$WORK_DIR/temp_original_${OUTPUT_NUMBER}.mp4"
+        ffmpeg -i "$VIDEO_FILE" -an -c:v "$ENCODER" $QUALITY_PARAM "$ORIGINAL_SEGMENT" -y -loglevel error
+        echo "file '$ORIGINAL_SEGMENT'" >> "$SEGMENT_LIST"
+        CURRENT_DURATION=$DURATION
+        REMAINING_NEEDED=$((TARGET_LENGTH - DURATION))
+        
+        print_info "    → Added original video (${DURATION}s), still need ${REMAINING_NEEDED}s"
+        
+        # Add filler videos until we reach target duration
+        while (( REMAINING_NEEDED > 0 )); do
+            # Find next filler video (cycle through available videos, skip current one)
+            FILLER_VIDEO_INDEX=$(( (i + 1 + FILLER_INDEX) % ${#VIDEO_FILES[@]} ))
+            if [[ $FILLER_VIDEO_INDEX -eq $i ]]; then
+                FILLER_VIDEO_INDEX=$(( (FILLER_VIDEO_INDEX + 1) % ${#VIDEO_FILES[@]} ))
+            fi
+            
+            FILLER_VIDEO="${VIDEO_FILES[$FILLER_VIDEO_INDEX]}"
+            FILLER_DURATION=$(ffprobe -v quiet -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$FILLER_VIDEO" 2>/dev/null | cut -d. -f1)
+            
+            # Determine how much of this filler video to use
+            if (( FILLER_DURATION >= REMAINING_NEEDED )); then
+                USE_DURATION=$REMAINING_NEEDED
+            else
+                USE_DURATION=$FILLER_DURATION
+            fi
+            
+            # Create filler segment (muted, from beginning)
+            FILLER_SEGMENT="$WORK_DIR/temp_filler_${OUTPUT_NUMBER}_${FILLER_INDEX}.mp4"
+            if (( USE_DURATION == FILLER_DURATION )); then
+                # Use full video
+                ffmpeg -i "$FILLER_VIDEO" -an -c:v "$ENCODER" $QUALITY_PARAM "$FILLER_SEGMENT" -y -loglevel error
+            else
+                # Cut to needed duration
+                ffmpeg -i "$FILLER_VIDEO" -t "$USE_DURATION" -an -c:v "$ENCODER" $QUALITY_PARAM "$FILLER_SEGMENT" -y -loglevel error
+            fi
+            
+            echo "file '$FILLER_SEGMENT'" >> "$SEGMENT_LIST"
+            CURRENT_DURATION=$((CURRENT_DURATION + USE_DURATION))
+            REMAINING_NEEDED=$((REMAINING_NEEDED - USE_DURATION))
+            
+            print_info "    → Added filler from $(basename "$FILLER_VIDEO") (${USE_DURATION}s), total: ${CURRENT_DURATION}s, still need: ${REMAINING_NEEDED}s"
+            
+            FILLER_INDEX=$((FILLER_INDEX + 1))
+            
+            # Safety check to prevent infinite loop
+            if [[ $FILLER_INDEX -gt ${#VIDEO_FILES[@]} ]]; then
+                print_warning "    → Used all available videos, final duration: ${CURRENT_DURATION}s"
+                break
+            fi
+        done
+        
+        # Concatenate all segments
+        ffmpeg -f concat -safe 0 -i "$SEGMENT_LIST" -c:v "$ENCODER" $QUALITY_PARAM "$PROCESSED_FILE" -y -loglevel error
+        
+        # Clean up segment files
+        rm -f "$ORIGINAL_SEGMENT"
+        for ((j=0; j<FILLER_INDEX; j++)); do
+            rm -f "$WORK_DIR/temp_filler_${OUTPUT_NUMBER}_${j}.mp4"
+        done
+        rm -f "$SEGMENT_LIST"
+        
+        print_success "    → Composite video created: ${CURRENT_DURATION}s total"
     fi
     
     # Step 3: Cut main video from TARGET_LENGTH to end (video only, no audio)
