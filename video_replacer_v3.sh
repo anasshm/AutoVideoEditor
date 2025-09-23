@@ -34,9 +34,9 @@ detect_hardware_acceleration() {
 
 ENCODER=$(detect_hardware_acceleration)
 if [[ "$ENCODER" == "h264_videotoolbox" ]]; then
-    # Maximum quality settings for VideoToolbox (lower number = higher quality)
-    QUALITY_PARAM="-q:v 60 -b:v 12M"  # Maximum quality with high bitrate
-    print_success "Apple Silicon hardware acceleration detected (maximum quality)"
+    # Maximum quality settings for VideoToolbox - use high bitrate for best quality
+    QUALITY_PARAM="-b:v 25M -maxrate 30M -bufsize 50M"  # High bitrate for maximum quality
+    print_success "Apple Silicon hardware acceleration detected (high bitrate for maximum quality)"
 else
     QUALITY_PARAM="-crf 18"  # Maximum quality for software encoding
     print_info "Using software encoding (libx264, maximum quality)"
