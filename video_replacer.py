@@ -92,7 +92,7 @@ def process_replacement_video(video_file, target_length, encoder, quality_params
         # Video is long enough, just cut and mute
         print_info(f"  → Muting and cutting replacement video to {target_length}s ({encoder})...")
         subprocess.run([
-            'ffmpeg', '-i', str(video_file), '-t', str(target_length),
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', str(video_file), '-t', str(target_length),
             '-an', '-c:v', encoder
         ] + quality_params.split() + [
             processed_file, '-y', '-loglevel', 'error'
@@ -107,7 +107,7 @@ def process_replacement_video(video_file, target_length, encoder, quality_params
         # Start with original video
         original_segment = os.path.join(work_dir, f"temp_original_{output_number}.mp4")
         subprocess.run([
-            'ffmpeg', '-i', str(video_file), '-an', '-c:v', encoder
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', str(video_file), '-an', '-c:v', encoder
         ] + quality_params.split() + [
             original_segment, '-y', '-loglevel', 'error'
         ], check=True)
@@ -140,14 +140,14 @@ def process_replacement_video(video_file, target_length, encoder, quality_params
             if use_duration == filler_duration:
                 # Use full video
                 subprocess.run([
-                    'ffmpeg', '-i', str(filler_video), '-an', '-c:v', encoder
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', str(filler_video), '-an', '-c:v', encoder
                 ] + quality_params.split() + [
                     filler_segment, '-y', '-loglevel', 'error'
                 ], check=True)
             else:
                 # Cut to needed duration
                 subprocess.run([
-                    'ffmpeg', '-i', str(filler_video), '-t', str(use_duration),
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', str(filler_video), '-t', str(use_duration),
                     '-an', '-c:v', encoder
                 ] + quality_params.split() + [
                     filler_segment, '-y', '-loglevel', 'error'
@@ -264,7 +264,7 @@ def main():
         main_audio = os.path.join(work_dir, f"main_audio_{i}.aac")
         print_info("  → Extracting audio from main video...")
         subprocess.run([
-            'ffmpeg', '-i', main_video, '-vn', '-c:a', 'aac',
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', main_video, '-vn', '-c:a', 'aac',
             main_audio, '-y', '-loglevel', 'error'
         ], check=True)
         
@@ -278,7 +278,7 @@ def main():
         main_segment = os.path.join(work_dir, f"temp_main_segment_{output_number}.mp4")
         print_info(f"  → Extracting main video segment ({target_length}s to end, {encoder})...")
         subprocess.run([
-            'ffmpeg', '-i', main_video, '-ss', str(target_length),
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', main_video, '-ss', str(target_length),
             '-an', '-c:v', encoder
         ] + quality_params.split() + [
             main_segment, '-y', '-loglevel', 'error'
@@ -305,7 +305,7 @@ def main():
         
         # Add original audio
         subprocess.run([
-            'ffmpeg', '-i', combined_video, '-i', main_audio,
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', combined_video, '-i', main_audio,
             '-c:v', 'copy', '-c:a', 'aac', '-shortest',
             output_file, '-y', '-loglevel', 'error'
         ], check=True)

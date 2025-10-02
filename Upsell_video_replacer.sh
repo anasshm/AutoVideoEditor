@@ -142,12 +142,12 @@ for i in "${!VIDEO_FILES[@]}"; do
     # Step 1: Extract audio from ORIGINAL video (this will be used for entire output)
     ORIGINAL_AUDIO="$WORK_DIR/original_audio_${i}.aac"
     print_info "  → Extracting audio from original video..."
-    ffmpeg -i "$VIDEO_FILE" -vn -c:a aac "$ORIGINAL_AUDIO" -y -loglevel error
+    ffmpeg -hwaccel videotoolbox -i "$VIDEO_FILE" -vn -c:a aac "$ORIGINAL_AUDIO" -y -loglevel error
     
     # Step 2: Extract first part of original video (0 to START_TIME) - MUTED
     ORIGINAL_BEGINNING="$WORK_DIR/temp_original_beginning_${OUTPUT_NUMBER}.mp4"
     print_info "  → Extracting original video beginning (0 to ${START_TIME}s, muted, ${ENCODER})..."
-    ffmpeg -i "$VIDEO_FILE" -t "$START_TIME" -an -c:v "$ENCODER" $QUALITY_PARAM "$ORIGINAL_BEGINNING" -y -loglevel error
+    ffmpeg -hwaccel videotoolbox -i "$VIDEO_FILE" -t "$START_TIME" -an -c:v "$ENCODER" $QUALITY_PARAM "$ORIGINAL_BEGINNING" -y -loglevel error
     
     # Step 3: Prepare upsell section (loop if needed) - MUTED
     UPSELL_SECTION="$WORK_DIR/temp_upsell_${OUTPUT_NUMBER}.mp4"
@@ -183,7 +183,7 @@ for i in "${!VIDEO_FILES[@]}"; do
     else
         # Upsell video is longer than needed, just cut it - MUTED
         print_info "  → Cutting upsell video to ${UPSELL_NEEDED}s (muted, ${ENCODER})..."
-        ffmpeg -i "$MAIN_VIDEO" -t "$UPSELL_NEEDED" -an -c:v "$ENCODER" $QUALITY_PARAM "$UPSELL_SECTION" -y -loglevel error
+        ffmpeg -hwaccel videotoolbox -i "$MAIN_VIDEO" -t "$UPSELL_NEEDED" -an -c:v "$ENCODER" $QUALITY_PARAM "$UPSELL_SECTION" -y -loglevel error
     fi
     
     # Step 4: Concatenate original beginning + upsell section (both muted)

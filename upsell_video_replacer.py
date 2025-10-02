@@ -175,14 +175,14 @@ def main():
         # Step 1: Extract audio from original video
         print_info("  → Extracting audio from original video...")
         subprocess.run([
-            'ffmpeg', '-i', str(video_file), '-vn', '-c:a', 'aac',
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', str(video_file), '-vn', '-c:a', 'aac',
             original_audio, '-y', '-loglevel', 'error'
         ], check=True)
         
         # Step 2: Extract beginning of original video (muted)
         print_info(f"  → Extracting original video beginning (0 to {start_time}s, muted)...")
         subprocess.run([
-            'ffmpeg', '-i', str(video_file), '-t', str(start_time),
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', str(video_file), '-t', str(start_time),
             '-an', '-c:v', encoder
         ] + quality_params.split() + [
             original_beginning, '-y', '-loglevel', 'error'
@@ -211,7 +211,7 @@ def main():
             
             # Cut to exact duration
             subprocess.run([
-                'ffmpeg', '-i', looped_full, '-t', str(upsell_needed),
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', looped_full, '-t', str(upsell_needed),
                 '-an', '-c:v', encoder
             ] + quality_params.split() + [
                 upsell_section, '-y', '-loglevel', 'error'
@@ -223,7 +223,7 @@ def main():
             # Just cut upsell to needed duration
             print_info(f"  → Cutting upsell video to {upsell_needed:.2f}s (muted)...")
             subprocess.run([
-                'ffmpeg', '-i', upsell_video, '-t', str(upsell_needed),
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', upsell_video, '-t', str(upsell_needed),
                 '-an', '-c:v', encoder
             ] + quality_params.split() + [
                 upsell_section, '-y', '-loglevel', 'error'
@@ -245,7 +245,7 @@ def main():
         # Step 5: Add original audio
         print_info("  → Adding original audio to entire video...")
         subprocess.run([
-            'ffmpeg', '-i', combined_video, '-i', original_audio,
+            'ffmpeg', '-hwaccel', 'videotoolbox', '-i', combined_video, '-i', original_audio,
             '-c:v', 'copy', '-c:a', 'aac', '-shortest',
             output_file, '-y', '-loglevel', 'error'
         ], check=True)

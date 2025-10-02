@@ -127,7 +127,7 @@ for i in "${!VIDEO_FILES[@]}"; do
     # Step 1: Extract audio from main video (this will be used throughout)
     MAIN_AUDIO="$WORK_DIR/main_audio_${i}.aac"
     print_info "  → Extracting audio from main video..."
-    ffmpeg -i "$MAIN_VIDEO" -vn -c:a aac "$MAIN_AUDIO" -y -loglevel error
+    ffmpeg -hwaccel videotoolbox -i "$MAIN_VIDEO" -vn -c:a aac "$MAIN_AUDIO" -y -loglevel error
     
     # Step 2: Mute and cut the replacement video (0 to TARGET_LENGTH)
     PROCESSED_FILE="$WORK_DIR/temp_processed_${OUTPUT_NUMBER}.mp4"
@@ -135,7 +135,7 @@ for i in "${!VIDEO_FILES[@]}"; do
     
     if [[ -n "$DURATION" ]] && (( DURATION >= TARGET_LENGTH )); then
         print_info "  → Muting and cutting replacement video to ${TARGET_LENGTH}s (${ENCODER})..."
-        ffmpeg -i "$VIDEO_FILE" -t "$TARGET_LENGTH" -an -c:v "$ENCODER" $QUALITY_PARAM "$PROCESSED_FILE" -y -loglevel error
+        ffmpeg -hwaccel videotoolbox -i "$VIDEO_FILE" -t "$TARGET_LENGTH" -an -c:v "$ENCODER" $QUALITY_PARAM "$PROCESSED_FILE" -y -loglevel error
     else
         print_info "  → Video is ${DURATION}s, need ${TARGET_LENGTH}s. Building composite video with fillers..."
         
@@ -149,7 +149,7 @@ for i in "${!VIDEO_FILES[@]}"; do
         
         # First, add the original video (full duration)
         ORIGINAL_SEGMENT="$WORK_DIR/temp_original_${OUTPUT_NUMBER}.mp4"
-        ffmpeg -i "$VIDEO_FILE" -an -c:v "$ENCODER" $QUALITY_PARAM "$ORIGINAL_SEGMENT" -y -loglevel error
+        ffmpeg -hwaccel videotoolbox -i "$VIDEO_FILE" -an -c:v "$ENCODER" $QUALITY_PARAM "$ORIGINAL_SEGMENT" -y -loglevel error
         echo "file '$ORIGINAL_SEGMENT'" >> "$SEGMENT_LIST"
         CURRENT_DURATION=$DURATION
         REMAINING_NEEDED=$((TARGET_LENGTH - DURATION))
@@ -178,10 +178,10 @@ for i in "${!VIDEO_FILES[@]}"; do
             FILLER_SEGMENT="$WORK_DIR/temp_filler_${OUTPUT_NUMBER}_${FILLER_INDEX}.mp4"
             if (( USE_DURATION == FILLER_DURATION )); then
                 # Use full video
-                ffmpeg -i "$FILLER_VIDEO" -an -c:v "$ENCODER" $QUALITY_PARAM "$FILLER_SEGMENT" -y -loglevel error
+                ffmpeg -hwaccel videotoolbox -i "$FILLER_VIDEO" -an -c:v "$ENCODER" $QUALITY_PARAM "$FILLER_SEGMENT" -y -loglevel error
             else
                 # Cut to needed duration
-                ffmpeg -i "$FILLER_VIDEO" -t "$USE_DURATION" -an -c:v "$ENCODER" $QUALITY_PARAM "$FILLER_SEGMENT" -y -loglevel error
+                ffmpeg -hwaccel videotoolbox -i "$FILLER_VIDEO" -t "$USE_DURATION" -an -c:v "$ENCODER" $QUALITY_PARAM "$FILLER_SEGMENT" -y -loglevel error
             fi
             
             echo "file '$FILLER_SEGMENT'" >> "$SEGMENT_LIST"
@@ -215,7 +215,7 @@ for i in "${!VIDEO_FILES[@]}"; do
     # Step 3: Cut main video from TARGET_LENGTH to end (video only, no audio)
     MAIN_SEGMENT="$WORK_DIR/temp_main_segment_${OUTPUT_NUMBER}.mp4"
     print_info "  → Extracting main video segment (${TARGET_LENGTH}s to end, ${ENCODER})..."
-    ffmpeg -i "$MAIN_VIDEO" -ss "$TARGET_LENGTH" -an -c:v "$ENCODER" $QUALITY_PARAM "$MAIN_SEGMENT" -y -loglevel error
+    ffmpeg -hwaccel videotoolbox -i "$MAIN_VIDEO" -ss "$TARGET_LENGTH" -an -c:v "$ENCODER" $QUALITY_PARAM "$MAIN_SEGMENT" -y -loglevel error
     
     # Step 4: Combine videos (replacement + main segment) and add original audio
     OUTPUT_FILE="$WORK_DIR/${FOLDER_NAME}_${OUTPUT_NUMBER}.mp4"
