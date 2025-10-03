@@ -298,6 +298,7 @@ def main():
         combined_video = os.path.join(work_dir, f"temp_combined_{output_number}.mp4")
         subprocess.run([
             'ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_list,
+            '-vf', 'scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black',
             '-c:v', encoder
         ] + quality_params.split() + [
             combined_video, '-y', '-loglevel', 'error'

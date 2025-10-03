@@ -237,6 +237,7 @@ def main():
         
         subprocess.run([
             'ffmpeg', '-f', 'concat', '-safe', '0', '-i', concat_list,
+            '-vf', 'scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black',
             '-c:v', encoder
         ] + quality_params.split() + [
             combined_video, '-y', '-loglevel', 'error'

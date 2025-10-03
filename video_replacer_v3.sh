@@ -228,7 +228,7 @@ for i in "${!VIDEO_FILES[@]}"; do
     
     # First, concatenate the video parts (no audio) - Hardware optimized
     COMBINED_VIDEO="$WORK_DIR/temp_combined_${OUTPUT_NUMBER}.mp4"
-    ffmpeg -f concat -safe 0 -i "$LIST_FILE" -c:v "$ENCODER" $QUALITY_PARAM "$COMBINED_VIDEO" -y -loglevel error
+    ffmpeg -f concat -safe 0 -i "$LIST_FILE" -vf "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black" -c:v "$ENCODER" $QUALITY_PARAM "$COMBINED_VIDEO" -y -loglevel error
     
     # Then, add the original audio to the combined video
     ffmpeg -i "$COMBINED_VIDEO" -i "$MAIN_AUDIO" -c:v copy -c:a aac -shortest "$OUTPUT_FILE" -y -loglevel error

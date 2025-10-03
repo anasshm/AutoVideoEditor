@@ -196,7 +196,7 @@ for i in "${!VIDEO_FILES[@]}"; do
     
     # Concatenate video parts (no audio)
     COMBINED_VIDEO="$WORK_DIR/temp_combined_${OUTPUT_NUMBER}.mp4"
-    ffmpeg -f concat -safe 0 -i "$CONCAT_LIST" -c:v "$ENCODER" $QUALITY_PARAM "$COMBINED_VIDEO" -y -loglevel error
+    ffmpeg -f concat -safe 0 -i "$CONCAT_LIST" -vf "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black" -c:v "$ENCODER" $QUALITY_PARAM "$COMBINED_VIDEO" -y -loglevel error
     
     # Step 5: Add original audio to the combined video
     OUTPUT_FILE="$WORK_DIR/${FOLDER_NAME}_${OUTPUT_NUMBER}.mp4"
